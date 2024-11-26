@@ -15,7 +15,6 @@ from sklearn.preprocessing import StandardScaler
 
 def sequence_to_smiles_model(input_shape, vocabulary_size, embedding_dimension=256, latent_dimension=512):
     """Builds a sequence-to-sequence model for SMILES generation from mass spectrometry data"""
-def sequence_to_smiles_model(input_shape, vocabulary_size, embedding_dimension=256, latent_dimension=512):
 
     # encoder
     encoder_input_layer = Input(shape=input_shape)
@@ -25,7 +24,7 @@ def sequence_to_smiles_model(input_shape, vocabulary_size, embedding_dimension=2
     """
     Kernel Size: 3 
     Filters: embedding dimension (256)
-    Activation Function : ReLU  
+    Activation Function: ReLU  
     Padding: 'same' to ensure output sequence length remains consistent
     Batch Normalization: normalization for stabilization and convergence
     Residual Connections: "Add" is used to combine outputs of the current and previous convolution layers
@@ -42,9 +41,9 @@ def sequence_to_smiles_model(input_shape, vocabulary_size, embedding_dimension=2
 
     # bidirectional lstm
     """
-    Latent Dimension: hidden state is set to half the latent dimension to ensure that the forward and backward states concataned match the latent dimension
+    Latent Dimension: the hidden state is set to half the latent dimension to ensure that the forward and backward states concatenated match the latent dimension
     return_sequences=True: outputs the sequence for the decoder input
-    return_state=True: outputs the final hidden and cell states, this is passed as initial state for the decoder
+    return_state=True: outputs the final hidden and cell states. This is passed as the initial state for the decoder
     
     Outputs:
         forward_hidden_state and backward_hidden_state: hidden states from the forward and backward LSTMs
@@ -65,7 +64,7 @@ def sequence_to_smiles_model(input_shape, vocabulary_size, embedding_dimension=2
     TimeDistributed Dense Layer: applies a dense layer to each step of the lstm output and outputs a probability distribution over the vocabulary size for each token poisiton. 
     Dropout (0.3): used to regularize the model and prevent overfitting 
     Softmax Activation: for multi-class prediction
-    Final Output: predicts the subsequent tokens in the SMILES sequence for each positon 
+    Final Output: predicts the subsequent tokens in the SMILES sequence for each position 
     """
 
     decoder_input_layer = Input(shape=(None,))
@@ -80,11 +79,11 @@ def preprocess_ms(spectrum_string):
     """Preprocesses a mass spectrum string into a list of (m/z, intensity) tuples"""
     try:
         df = pd.DataFrame([peak.split(':') for peak in spectrum_string.split()], columns=['m/z', 'intensity'])
-        df = df.astype(float)  # Convert columns to float
-        df['intensity'] /= df['intensity'].max()  # Normalize intensity values
+        df = df.astype(float)  # convert columns to float
+        df['intensity'] /= df['intensity'].max()  # normalize intensity values
         return list(df.itertuples(index=False, name=None))
     except (ValueError, IndexError):
-        return []  # Return an empty list if parsing fails
+        return []  # return an empty list if parsing fails
 
 
 def build_vocabulary(dataframe):
@@ -97,24 +96,24 @@ def build_vocabulary(dataframe):
 
 
 def main():
-    # Data loading
+    # data loading
     data_file = 'cleaned_gc_spectra.csv'
     df = pd.read_csv(data_file).dropna(subset=['Spectrum', 'SMILES'])
     df['SMILES'] = df['SMILES'].astype(str)
 
-    # Process spectra
+    # process spectra
     df['Processed_Spectrum'] = df['Spectrum'].apply(preprocess_ms)
     df = df[df['Processed_Spectrum'].apply(len) > 0]
 
-    # Build vocabulary from SMILES
+    # build vocabulary from SMILES
     token_to_index, index_to_token = build_vocabulary(df)
 
-    # Tokenize SMILES
+    # tokenize SMILES
     tokenized_smiles = df['SMILES'].apply(lambda x: [token_to_index.get(tok, 0) for tok in list(x)])
     padded_smiles = pad_sequences(tokenized_smiles, padding='post')
     vocab_size = len(token_to_index) + 1
 
-    # Create spectrum array
+    # create spectrum array
     max_length = max(len(spectrum) for spectrum in df['Processed_Spectrum'])
     spectra_array = np.array([
         [intensity for _, intensity in spectrum] + [0] * (max_length - len(spectrum))
@@ -122,22 +121,22 @@ def main():
     ])
     spectra_array = StandardScaler().fit_transform(spectra_array)
 
-    # Split datasets
+    # split datasets
     X_train, X_test, y_train, y_test = train_test_split(spectra_array, padded_smiles, test_size=0.2, random_state=42)
     X_train_expanded = np.expand_dims(X_train, axis=-1)
     X_test_expanded = np.expand_dims(X_test, axis=-1)
 
-    # Prepare decoder inputs and outputs
+    # prepare decoder inputs and outputs
     decoder_input_train = y_train[:, :-1]
     y_train_one_hot = to_categorical(y_train[:, 1:], num_classes=vocab_size)
 
-    # Build and compile model
+    # build and compile model
     input_shape = (X_train_expanded.shape[1], X_train_expanded.shape[2])
     model = sequence_to_smiles_model(input_shape, vocab_size)
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001, clipnorm=1.0),
                   loss='categorical_crossentropy', metrics=['accuracy'])
 
-    # Train model
+    # train model
     model.fit([X_train_expanded, decoder_input_train], y_train_one_hot, batch_size=32, epochs=50,
               validation_split=0.1,
               callbacks=[
@@ -145,10 +144,10 @@ def main():
                   ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6)
               ])
 
-    # Generate predictions
+    # generate predictions
     y_test_preds = model.predict([X_test_expanded, y_test[:, :-1]])
 
-    # Decode predictions
+    # decode predictions
     test_decoded = [
         ''.join(index_to_token.get(np.argmax(token), '') for token in seq)
         for seq in y_test_preds
@@ -158,7 +157,7 @@ def main():
         for seq in y_test
     ]
 
-    # Save predictions
+    # save predictions
     print("Saving predictions...")
     pd.DataFrame({'actual': actual_decoded, 'predicted': test_decoded}).to_csv('predictions.csv', index=False)
 
