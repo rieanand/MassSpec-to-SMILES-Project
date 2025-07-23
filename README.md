@@ -1,7 +1,4 @@
-# msse-Chem277B-Project
-## Project Checkpoint CHEM277B
 ### Generating Novel Compounds from Mass Spectrometry Data
-#### Team 3: Casey Tomlin, Dulce Torres, Esther Mathew, Jesse Maki, Marie Anand
 
 ##### Objective
 
